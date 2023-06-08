@@ -1,0 +1,130 @@
+from pymongo import MongoClient
+
+
+client = MongoClient('mongodb://localhost:27017/')
+db = client['admin']
+user_collection = db['users']
+flight_ticket_collection = db['flight_ticket']
+
+user_collection.insert_one({
+    'username': 'user1',
+    'password': 'user1_password',
+    'is_admin': False
+})
+
+user_collection.insert_one({
+    'username': 'admin1',
+    'password': 'admin1_password',
+    'is_admin': True
+})
+
+flight_ticket_collection.insert_one({
+    'start_point': 'Chennai',
+    'end_point': 'Delhi',
+    'ticket_count': 60
+})
+
+flight_ticket_collection.insert_one({
+    'start_point': 'Delhi',
+    'end_point': 'Chennai',
+    'ticket_count': 60
+})
+
+
+def login_user(username, password):
+    user_data = user_collection.find_one({'username': username, 'is_admin': False})
+    if user_data and user_data['password'] == password:
+        print("Login successful.")
+        return True
+    else:
+        print("Invalid username or password.")
+        return False
+
+def login_admin(username, password):
+    admin_data = user_collection.find_one({'username': username, 'is_admin': True})
+    if admin_data and admin_data['password'] == password:
+        print("Admin login successful.")
+        return True
+    else:
+        print("Invalid admin username or password.")
+        return False
+
+def check_ticket_availability(start_point, end_point):
+    ticket_data = flight_ticket_collection.find_one({'start_point': start_point, 'end_point': end_point})
+    if ticket_data and ticket_data['ticket_count'] > 0:
+        return True
+    return False
+
+def book_tickets(start_point, end_point, people):
+    ticket_data = flight_ticket_collection.find_one({'start_point': start_point, 'end_point': end_point})
+    if ticket_data and ticket_data['ticket_count'] >= people:
+        flight_ticket_collection.update_one(
+            {'start_point': start_point, 'end_point': end_point},
+            {'$inc': {'ticket_count': -people}}
+        )
+        return True
+    return False
+
+def set_ticket_count(start_point, end_point, ticket_count):
+    flight_ticket_collection.update_one(
+        {'start_point': start_point, 'end_point': end_point},
+        {'$set': {'ticket_count': ticket_count}}
+    )
+
+def ticket_booking():
+    print("\n\nTicket Booking System\n")
+
+    user_login = False
+    while not user_login:
+        username = input("Enter your username: ")
+        password = input("Enter your password: ")
+
+        if login_user(username, password):
+            user_login = True
+        elif login_admin(username, password):
+            print("Admin login. Additional options are available.")
+            user_login = True
+        else:
+            print("Invalid credentials. Please try again.")
+
+    restart = 'Y'
+
+    while restart not in ('N', 'NO', 'n', 'no'):
+        print("1. Check PNR status")
+        print("2. Ticket Reservation")
+        option = int(input("\nEnter your option: "))
+
+        if option == 1:
+            print("Your PNR status is T3")
+            exit(0)
+
+        elif option == 2:
+            if user_login:
+                start_point = input("\nEnter the starting point (Indian city): ")
+                end_point = input("Enter the ending point (Indian city): ")
+                people = int(input("Enter the number of tickets you want"))
+                if check_ticket_availability(start_point, end_point):
+                    if book_tickets(start_point, end_point, people):
+                        print("\nTickets booked successfully!")
+                    else:
+                        print("\nTickets not available. Please try again later.")
+                else:
+                    print("\nTickets not available between the selected points.")
+
+        elif option == 3:
+            if user_login and login_admin(username, password):
+                start_point = input("\nEnter the starting point (Indian city- Chennai / Delhi): ")
+                end_point = input("Enter the ending point (Indian city- Delhi / Chennai): ")
+                ticket_count = int(input("Enter the ticket count: "))
+
+                set_ticket_count(start_point, end_point, ticket_count)
+                print("Ticket count updated successfully!")
+
+        else:
+            print("Invalid option. Please try again.")
+
+        restart = input("\nDo you want to continue? (y/n): ")
+
+if __name__ == '__main__':
+    ticket_booking()
+
